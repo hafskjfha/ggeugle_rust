@@ -1,6 +1,0 @@
-User-Agent: GPTBot
-Disallow: /
-
-User-agent: *
-Allow: /
-sitemap : https://engine.ikki.app/sitemap.xml

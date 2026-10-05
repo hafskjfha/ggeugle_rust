@@ -1,0 +1,32 @@
+{
+  "name": "wordchain-game-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "example": "npm run build && node examples/play.mjs"
+  },
+  "dependencies": {
+    "denque": "^2.1.0",
+    "es-hangul": "^2.3.8",
+    "hangul-js": "^0.2.6",
+    "lodash-es": "^4.17.23"
+  },
+  "devDependencies": {
+    "@types/lodash-es": "^4.17.12",
+    "@types/node": "^22",
+    "typescript": "^5.9.2"
+  }
+}
