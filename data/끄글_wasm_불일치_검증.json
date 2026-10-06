@@ -1,0 +1,278 @@
+{
+  "generatedAt": "2026-10-06T10:00:32.750Z",
+  "benchmarkCompletedAt": "2026-10-06T09:55:57.880Z",
+  "status": "complete",
+  "timeoutMillis": 30000,
+  "precedence": {
+    "rule": 0,
+    "maps": {
+      "edge": {},
+      "node": {}
+    }
+  },
+  "changeFuncIdx": 1,
+  "flow": 0,
+  "mismatchesCount": 1,
+  "hashes": {
+    "dictionary": "89350ada2161abfc918ed9c2fee90dc9a1105d70072c5158b978948184c07a74",
+    "roots": "8d84a6aff89bba18c7e75e1a555365533fd9671e6007706ce8b3d881dfc05a14",
+    "baseline": "e8181d0c2e1e151a3a42ab3658d32f3f24563ba3835b42905f9f15380f46a8e1",
+    "wasm": "5b43054aee09ec994bb90aae98e67fd37ddc8efccf79b3db452af29d37704dd0",
+    "tsEntrypoint": "add064934c395f4b3aa1f98c30aecd5527bc2efeb2a7ca9294d5cc03828ccc6f",
+    "rows": "220709af2dd2332d178620d5a28ab171e60c46e2b203935dfa096e466a7f5d26",
+    "savedSnapshot": "4ea677c20f0277325b49f7640a6d563e133b793a62ef2536b43656c820e4bb83"
+  },
+  "snapshot": {
+    "source": "saved",
+    "compatibility": {
+      "compatible": true,
+      "checks": {
+        "dictionaryMatches": true,
+        "indicesMatch": true,
+        "flowMatches": true,
+        "graphCountsMatch": true,
+        "rootsAreRouteMoves": true
+      }
+    },
+    "savedSnapshotError": null,
+    "evidence": "Saved snapshot has no embedded dictionary hash; checked exact dictionary word set, indices, flow, route counts, and root moves against benchmark inputs."
+  },
+  "engines": {
+    "wasm": "C:\\dev\\ggeugle\\game_ai_wasm\\pkg\\game_ai_wasm_bg.wasm",
+    "originalTs": "C:\\dev\\ggeugle\\game-ai\\dist\\index.js"
+  },
+  "interpretation": "Compares current TS and WASM DFS on the same route graph. This does not recreate the undocumented historical dictionary/settings or independently compare TS/WASM graph classification. Historical values and measured rows are preserved.",
+  "results": [
+    {
+      "word": "식업",
+      "move": [
+        "식",
+        "업"
+      ],
+      "historical": {
+        "outcome": "패",
+        "seconds": 0.38,
+        "secondsText": "0.38"
+      },
+      "measured": {
+        "index": 330,
+        "word": "식업",
+        "status": "resolved",
+        "isWin": true,
+        "duration": 121.2919,
+        "optimalPath": [
+          [
+            "식",
+            "업"
+          ],
+          [
+            "업",
+            "름"
+          ],
+          [
+            "늠",
+            "준"
+          ],
+          [
+            "준",
+            "축"
+          ],
+          [
+            "축",
+            "칭"
+          ],
+          [
+            "칭",
+            "웅"
+          ],
+          [
+            "웅",
+            "준"
+          ],
+          [
+            "준",
+            "삭"
+          ],
+          [
+            "삭",
+            "름"
+          ],
+          [
+            "늠",
+            "균"
+          ],
+          [
+            "균",
+            "균"
+          ],
+          [
+            "균",
+            "축"
+          ],
+          [
+            "축",
+            "융"
+          ],
+          [
+            "융",
+            "준"
+          ],
+          [
+            "준",
+            "견"
+          ],
+          [
+            "견",
+            "융"
+          ],
+          [
+            "융",
+            "즉"
+          ],
+          [
+            "즉",
+            "견"
+          ],
+          [
+            "견",
+            "견"
+          ],
+          [
+            "견",
+            "삭"
+          ],
+          [
+            "삭",
+            "삭"
+          ],
+          [
+            "삭",
+            "벽"
+          ]
+        ],
+        "visited": 773,
+        "callMillis": 124.89669999992475,
+        "wallMillis": 125.4035000000149,
+        "outcome": "승",
+        "searchSeconds": 0.1212919,
+        "timeoutSeconds": null,
+        "baseline": {
+          "outcome": "패",
+          "seconds": 0.38,
+          "secondsText": "0.38"
+        },
+        "completedAt": "2026-10-06T08:55:53.067Z"
+      },
+      "wasm": {
+        "status": "resolved",
+        "isWin": true,
+        "durationMillis": 140.84810000000002,
+        "visited": 773,
+        "optimalPath": [
+          [
+            "식",
+            "업"
+          ],
+          [
+            "업",
+            "름"
+          ],
+          [
+            "늠",
+            "준"
+          ],
+          [
+            "준",
+            "축"
+          ],
+          [
+            "축",
+            "칭"
+          ],
+          [
+            "칭",
+            "웅"
+          ],
+          [
+            "웅",
+            "준"
+          ],
+          [
+            "준",
+            "삭"
+          ],
+          [
+            "삭",
+            "름"
+          ],
+          [
+            "늠",
+            "균"
+          ],
+          [
+            "균",
+            "균"
+          ],
+          [
+            "균",
+            "축"
+          ],
+          [
+            "축",
+            "융"
+          ],
+          [
+            "융",
+            "준"
+          ],
+          [
+            "준",
+            "견"
+          ],
+          [
+            "견",
+            "융"
+          ],
+          [
+            "융",
+            "즉"
+          ],
+          [
+            "즉",
+            "견"
+          ],
+          [
+            "견",
+            "견"
+          ],
+          [
+            "견",
+            "삭"
+          ],
+          [
+            "삭",
+            "삭"
+          ],
+          [
+            "삭",
+            "벽"
+          ]
+        ],
+        "callMillis": 160.8564,
+        "wallMillis": 172.46370000000002,
+        "initializationMillis": 158.44009999999992
+      },
+      "originalTs": {
+        "status": "resolved",
+        "isWin": true,
+        "durationMillis": 76.9233999999999,
+        "callMillis": 77.04040000000009,
+        "wallMillis": 89.74469999999997,
+        "initializationMillis": 642.0814
+      },
+      "wasmMatchesMeasurement": true,
+      "enginesAgree": true,
+      "conclusion": "current-engines-agree-with-measurement; historical-record-disagrees"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "startedAt": "2026-10-06T05:49:52.081Z",
+  "timezone": "Asia/Seoul",
+  "status": "complete",
+  "rootsCount": 587,
+  "rootOccurrences": 628,
+  "uniqueMoves": 499,
+  "baselineRows": 223,
+  "baselineMatches": 222,
+  "baselineUnmatched": [
+    "윤희결"
+  ],
+  "hashes": {
+    "dictionary": "89350ada2161abfc918ed9c2fee90dc9a1105d70072c5158b978948184c07a74",
+    "roots": "8d84a6aff89bba18c7e75e1a555365533fd9671e6007706ce8b3d881dfc05a14",
+    "baseline": "e8181d0c2e1e151a3a42ab3658d32f3f24563ba3835b42905f9f15380f46a8e1",
+    "wasm": "5b43054aee09ec994bb90aae98e67fd37ddc8efccf79b3db452af29d37704dd0"
+  },
+  "timeoutMillis": 30000,
+  "precedence": {
+    "rule": 0,
+    "maps": {
+      "edge": {},
+      "node": {}
+    }
+  },
+  "changeFuncIdx": 1,
+  "flow": 0,
+  "dictionaryWords": 265360,
+  "preprocessingMillis": 1208.816,
+  "graph": {
+    "partition": "route",
+    "nodes": [
+      160,
+      219
+    ],
+    "distinctMoves": 759,
+    "words": 863
+  },
+  "environment": {
+    "node": "v24.11.1",
+    "platform": "win32",
+    "architecture": "x64",
+    "release": "10.0.26200",
+    "cpu": "Intel(R) Core(TM) Ultra 5 225H",
+    "logicalCpus": 14,
+    "totalMemoryBytes": 16509030400
+  },
+  "gitHead": "5dab9b312f6fbc661fa2dea42a01ae378af5ce24",
+  "execution": "One WASM worker; roots sequential; no result caching; worker WASM initialization and dictionary preprocessing excluded from search times; 30-second parent watchdog includes dispatch and call overhead.",
+  "pausedAt": "2026-10-06T06:58:06.3198961+00:00",
+  "completedRows": 587,
+  "resolved": 313,
+  "timeouts": 274,
+  "lastCompletedRoot": "희희",
+  "nextRoot": null,
+  "resumedAt": "2026-10-06T08:31:59.166Z",
+  "resumeEvents": [
+    {
+      "at": "2026-10-06T08:31:59.166Z",
+      "completedRows": 240,
+      "preprocessingMillis": 741.3619000000001
+    }
+  ],
+  "completedAt": "2026-10-06T09:55:57.880Z",
+  "totalWallMillis": 9041387.233899996
+}

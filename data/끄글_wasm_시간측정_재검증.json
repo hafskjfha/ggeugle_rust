@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-10-06T10:04:09.673Z",
+  "benchmarkCompletedAt": "2026-10-06T09:55:57.880Z",
+  "hashes": {
+    "dictionary": "89350ada2161abfc918ed9c2fee90dc9a1105d70072c5158b978948184c07a74",
+    "roots": "8d84a6aff89bba18c7e75e1a555365533fd9671e6007706ce8b3d881dfc05a14",
+    "baseline": "e8181d0c2e1e151a3a42ab3658d32f3f24563ba3835b42905f9f15380f46a8e1",
+    "wasm": "5b43054aee09ec994bb90aae98e67fd37ddc8efccf79b3db452af29d37704dd0",
+    "rows": "220709af2dd2332d178620d5a28ab171e60c46e2b203935dfa096e466a7f5d26"
+  },
+  "timeoutMillis": 30000,
+  "anomalyThresholdMillis": 31000,
+  "results": [
+    {
+      "word": "멸균",
+      "original": {
+        "index": 238,
+        "word": "멸균",
+        "status": "timeout",
+        "timeoutSource": "watchdog",
+        "wallMillis": 420437.02859999985,
+        "outcome": "미판정",
+        "searchSeconds": null,
+        "timeoutSeconds": 30,
+        "baseline": null,
+        "completedAt": "2026-10-06T06:56:33.791Z"
+      },
+      "recheck": {
+        "status": "timeout",
+        "timeoutSource": "watchdog",
+        "wallMillis": 30007.209899999998,
+        "completedAt": "2026-10-06T10:04:09.669Z"
+      }
+    }
+  ]
+}

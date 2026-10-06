@@ -1,5 +1,10 @@
 # 끝말잇기 게임 AI
 
+원본 분석과 포팅 비교 문서:
+
+- [원본 AI의 동작 방식](docs/original-ai.md)
+- [Rust 포팅의 유지 사항과 변경점](docs/rust-port-differences.md)
+
 게임 인공지능과 분석 엔진을 [`game-ai/`](game-ai/) 독립 폴더에 정리했습니다.
 
 ```bash
