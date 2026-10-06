@@ -2,7 +2,7 @@
 
 기존 끝말잇기 웹 서비스에서 게임 인공지능과 분석 엔진만 추출한 독립 TypeScript 패키지입니다. Node.js 22 이상에서 실행합니다.
 
-원본 프로젝트: [singrum/ggeugle](https://github.com/singrum/ggeugle).
+원본 프로젝트: [singrum/ggeugle-1c975c8](https://github.com/singrum/ggeugle/tree/1c975c8fcec4a01d2e3716caadacb9b28e7472e3).
 
 ## 설치 및 실행
 
