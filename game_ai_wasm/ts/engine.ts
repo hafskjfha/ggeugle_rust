@@ -52,6 +52,10 @@ export async function createEngineFunctions(wasmInput?: WasmInput): Promise<Engi
       raw.startStreamingCriticalWordsInfo(graph, view, flow, callback),
     prepareRootSearch: (graph, move, prec = DEFAULT_PRECEDENCE, timeoutMillis) =>
       raw.prepareRootSearch(graph, move, prec, timeoutMillis),
+    prepareSyllableSearch: (solver, syllable, changeFuncIdx = 0, prec = DEFAULT_PRECEDENCE, timeoutMillis) =>
+      raw.prepareSyllableSearch(solver, syllable, changeFuncIdx, prec, timeoutMillis),
+    searchSyllable: (solver, syllable, changeFuncIdx = 0, prec = DEFAULT_PRECEDENCE, timeoutMillis) =>
+      raw.searchSyllable(solver, syllable, changeFuncIdx, prec, timeoutMillis),
     searchRootBranch: (graph, move, prec = DEFAULT_PRECEDENCE, timeoutMillis, callback) =>
       raw.searchRootBranch(graph, move, prec, timeoutMillis, callback),
     finishRootSearch: (plan, results, duration) => raw.finishRootSearch(plan, results, duration),

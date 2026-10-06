@@ -186,6 +186,40 @@ pub fn prepare_root_search(
     encode(&core::prepare_root_search(&graph, &movement, &prec, limit).map_err(js_error)?)
 }
 
+#[wasm_bindgen(js_name = prepareSyllableSearch)]
+pub fn prepare_syllable_search(
+    graph_solver: JsValue,
+    syllable: &str,
+    change_func_idx: usize,
+    prec: JsValue,
+    timeout_millis: Option<f64>,
+) -> Result<JsValue, JsValue> {
+    let solver = decode::<core::GraphSolver>(graph_solver)?;
+    let prec = decode::<core::PrecInfo>(prec)?;
+    let limit = timeout(timeout_millis).map_err(js_error)?;
+    encode(
+        &core::prepare_syllable_search(&solver, syllable, change_func_idx, &prec, limit)
+            .map_err(js_error)?,
+    )
+}
+
+#[wasm_bindgen(js_name = searchSyllable)]
+pub fn search_syllable(
+    graph_solver: JsValue,
+    syllable: &str,
+    change_func_idx: usize,
+    prec: JsValue,
+    timeout_millis: Option<f64>,
+) -> Result<JsValue, JsValue> {
+    let solver = decode::<core::GraphSolver>(graph_solver)?;
+    let prec = decode::<core::PrecInfo>(prec)?;
+    let limit = timeout(timeout_millis).map_err(js_error)?;
+    encode(
+        &core::search_syllable(&solver, syllable, change_func_idx, &prec, limit)
+            .map_err(js_error)?,
+    )
+}
+
 #[wasm_bindgen(js_name = searchRootBranch)]
 pub fn search_root_branch(
     graph: JsValue,

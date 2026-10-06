@@ -1,5 +1,5 @@
 import { DEFAULT_PRECEDENCE } from "./engine.js";
-import type { Graph, PrecInfo, RootBranchResult, RootSearchPlan, SearchEvent, SearchResult, SingleMove } from "./types.js";
+import type { Graph, GraphSolver, PrecInfo, RootBranchResult, RootSearchPlan, SearchEvent, SearchResult, SingleMove } from "./types.js";
 import { abortError, timeoutError, validateTimeout, WorkerRunner, type WorkerRunnerOptions } from "./worker-runner.js";
 
 export type ParallelSearchEvent = SearchEvent & { branchIndex: number | null };
@@ -9,6 +9,10 @@ export type ParallelSearchOptions = {
   signal?: AbortSignal;
   onEvent?: (event: ParallelSearchEvent) => void;
 };
+
+type SearchSource =
+  | { kind: "move"; graph: Graph; move: SingleMove }
+  | { kind: "syllable"; solver: GraphSolver; syllable: string; changeFuncIdx: number };
 
 /** Coordinates independent Rust response branches in bounded browser workers. */
 export class ParallelSearchRunner {
@@ -29,6 +33,21 @@ export class ParallelSearchRunner {
     prec: PrecInfo = DEFAULT_PRECEDENCE,
     options: ParallelSearchOptions = {},
   ): Promise<SearchResult> {
+    return this.runSearch({ kind: "move", graph, move }, prec, options);
+  }
+
+  /** Judge the player who must start with this syllable, including missing-tail nodes. */
+  searchSyllable(
+    solver: GraphSolver,
+    syllable: string,
+    changeFuncIdx = 0,
+    prec: PrecInfo = DEFAULT_PRECEDENCE,
+    options: ParallelSearchOptions = {},
+  ): Promise<SearchResult> {
+    return this.runSearch({ kind: "syllable", solver, syllable, changeFuncIdx }, prec, options);
+  }
+
+  private runSearch(source: SearchSource, prec: PrecInfo, options: ParallelSearchOptions): Promise<SearchResult> {
     this.terminate();
     return new Promise((resolve, reject) => {
       const defaultWorkers = typeof navigator === "undefined" ? 2 : Math.max(1, Math.min(4, navigator.hardwareConcurrency || 2));
@@ -67,6 +86,9 @@ export class ParallelSearchRunner {
       const emit = (event: SearchEvent, branchIndex: number | null) => {
         if (!settled) {
           checkDeadline();
+          if (source.kind === "syllable" && event.action === "stack") {
+            event = { ...event, payload: event.payload.filter(([head]) => head !== "__none") };
+          }
           options.onEvent?.({ ...event, branchIndex });
         }
       };
@@ -81,6 +103,15 @@ export class ParallelSearchRunner {
         // Release this request before callbacks can start a replacement search.
         settled = true;
         cleanup();
+        if (source.kind === "syllable") {
+          result = {
+            ...result,
+            isWin: !result.isWin,
+            optimalPath: result.optimalPath.slice(1),
+            visited: Math.max(0, result.visited - 1),
+            duration: performance.now() - started,
+          };
+        }
         try {
           options.onEvent?.({ action: "done", payload: result, branchIndex: null });
           resolve(result);
@@ -156,7 +187,12 @@ export class ParallelSearchRunner {
       };
 
       const planner = newRunner();
-      planner.callAndTerminate("prepareRootSearch", [graph, move, prec, remaining()], remaining()).then(runBranches).catch(fail);
+      if (source.kind === "syllable") {
+        planner.callAndTerminate("prepareSyllableSearch",
+          [source.solver, source.syllable, source.changeFuncIdx, prec, remaining()], remaining()).then(runBranches).catch(fail);
+      } else {
+        planner.callAndTerminate("prepareRootSearch", [source.graph, source.move, prec, remaining()], remaining()).then(runBranches).catch(fail);
+      }
     });
   }
 }

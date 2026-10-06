@@ -18,6 +18,30 @@ npm run example
 
 예제는 `http://127.0.0.1:4173`에서 열립니다. `npm run build`는 Rust를 release WASM으로 빌드한 뒤 JS glue와 TypeScript 선언을 생성합니다. 빌드 결과는 `pkg/`, `dist/`에 있고 버전 관리에서 제외됩니다. `.tools/bin/wasm-bindgen`이 있으면 자동으로 사용하며, `WASM_BINDGEN` 환경 변수로 도구 경로를 지정할 수도 있습니다.
 
+## 브라우저에서 음절 판정하기
+
+예제 화면에서 사전을 직접 입력하거나 `.txt` 파일을 선택하고, 조회할 음절 한 글자를 입력한 뒤 **승패 조회**를 누릅니다. 파일은 브라우저에서 읽으며 서버로 전송하지 않습니다. 단어는 공백 또는 줄바꿈으로 구분합니다. UTF-8 텍스트와 BOM이 있는 UTF-16 텍스트를 지원합니다. `examples/sample-dictionary.txt`는 업로드 테스트용 사전입니다.
+
+판정은 **그 음절로 시작할 차례인 플레이어** 기준입니다. 예를 들어 사전이 `사과 과자 자두`라면 `과`는 패배, `자`는 승리입니다. 두음법칙 사용 여부와 워커 수를 선택할 수 있습니다. 분류만으로 결정되지 않는 상태는 자동으로 추가 탐색하며, 제한 시간 안에 끝나지 않으면 **미판정**으로 표시합니다.
+
+## 음절 조회 API
+
+```js
+const solver = await engine.getWcData(rule, 0);
+const changeFuncIdx = rule.content.wordConnectionRule.changeFuncIdx;
+
+// 직접 호출: 이 음절로 시작할 차례인 사람이 승리하면 true입니다.
+const result = engine.searchSyllable(solver.graphSolver, '과', changeFuncIdx);
+console.log(result.isWin);
+
+// 동일한 판정을 Web Worker에서 병렬로 탐색합니다.
+const searcher = new ParallelSearchRunner();
+const parallel = await searcher.searchSyllable(solver.graphSolver, '과', changeFuncIdx,
+  undefined, { workers: 4, timeoutMillis: 30000 });
+```
+
+`engine`과 `rule`의 생성 예제는 아래 기본 API를 참고하세요. `ParallelSearchRunner`는 패키지에서 import합니다. 입력 이동을 기준으로 판정하는 `searchIsWin`과 달리, `searchSyllable`은 조회한 음절에서 시작할 사람의 승패를 반환합니다. 사전에 끝음절로 등장하지 않는 글자도 연결 규칙에 따라 처리합니다. 기보를 반영하려면 `engine.afterHistory(solver, history)`의 반환값을 첫 번째 인자로 전달하세요.
+
 `wasm-pack`을 이미 사용한다면 다음 방식도 가능합니다.
 
 ```bash

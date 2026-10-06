@@ -118,6 +118,11 @@ export interface EngineFunctions {
     callback: (event: CriticalWordsInfo) => void): void;
   prepareRootSearch(graph: Graph, move: SingleMove, prec?: PrecInfo,
     timeoutMillis?: number): RootSearchPlan;
+  prepareSyllableSearch(solver: GraphSolver, syllable: string, changeFuncIdx?: number,
+    prec?: PrecInfo, timeoutMillis?: number): RootSearchPlan;
+  /** isWin describes the player whose turn starts with the queried syllable. */
+  searchSyllable(solver: GraphSolver, syllable: string, changeFuncIdx?: number,
+    prec?: PrecInfo, timeoutMillis?: number): SearchResult;
   searchRootBranch(graph: Graph, move: SingleMove, prec?: PrecInfo, timeoutMillis?: number,
     callback?: (event: SearchEvent) => void): RootBranchResult;
   finishRootSearch(plan: RootSearchPlan, results: (RootBranchResult | null)[], duration: number): SearchResult;

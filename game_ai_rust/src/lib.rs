@@ -15,8 +15,9 @@ pub mod strategy;
 pub mod words;
 pub use ai::{
     AiOptions, GameEvent, RootBranchResult, RootSearchPlan, SearchEvent, SearchResult, choose_move,
-    choose_move_with_callback, finish_root_search, is_game_end, prepare_root_search, search_is_win,
-    search_root_branch, start_streaming_single_thread_search,
+    choose_move_with_callback, finish_root_search, is_game_end, prepare_root_search,
+    prepare_syllable_search, search_is_win, search_root_branch, search_syllable,
+    start_streaming_single_thread_search,
 };
 pub use edge_map::{EdgeCounter, EdgeMap};
 pub use engine::{get_wc_data, start_streaming_critical_words_info, update_solver};

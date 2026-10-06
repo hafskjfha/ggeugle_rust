@@ -1,64 +1,109 @@
 <!doctype html>
 <html lang="ko">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>끝말잇기 WASM 탐색 예제</title>
-<style>
-  body { font: 16px/1.6 system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px; color: #182333; background: #f7f9fc; }
-  h1 { font-size: 26px; } label { display: block; margin-top: 18px; }
-  textarea, input, select, button { font: inherit; padding: 8px; border: 1px solid #b7c4d6; border-radius: 6px; }
-  textarea { width: 100%; box-sizing: border-box; } input { width: 80px; }
-  button { margin: 14px 8px 0 0; background: white; cursor: pointer; } button:first-of-type { background: #2357be; color: white; }
-  pre { padding: 18px; background: #e9eef7; white-space: pre-wrap; overflow-wrap: anywhere; }
-</style>
-<h1>끝말잇기 WASM 탐색</h1>
-<p>단어를 입력하고 한 수의 승패를 탐색합니다. 분석과 병렬 탐색은 Web Worker에서 실행됩니다.</p>
-<label for="words">사전 (공백 또는 줄바꿈으로 구분)</label>
-<textarea id="words" rows="5">가가 가나 나가 나다 다가</textarea>
-<label>탐색할 이동 <input id="head" value="나" aria-label="첫 글자"> → <input id="tail" value="가" aria-label="끝 글자"></label>
-<label for="workers">병렬 워커 수 <select id="workers"><option>1</option><option selected>2</option><option>4</option></select></label>
-<button id="search">병렬 탐색</button><button id="cancel" disabled>중단</button>
-<pre id="result" aria-live="polite">탐색 대기 중</pre>
-<script type="module">
-  import { WorkerRunner, ParallelSearchRunner } from '../dist/index.js';
-  const loader = new WorkerRunner();
-  const searcher = new ParallelSearchRunner();
-  const output = document.querySelector('#result');
-  const search = document.querySelector('#search');
-  const cancel = document.querySelector('#cancel');
-  search.addEventListener('click', async () => {
-    search.disabled = true;
-    cancel.disabled = false;
-    output.textContent = '사전 분석 중…';
-    try {
-      const rule = {
-        id: 'example', metadata: { title: 'WASM 예제', updatedAt: 0, color: '' },
-        content: {
-          wordRule: { words: { type: 'manual', option: { content: document.querySelector('#words').value } },
-            regexFilter: '.*', addedWords: '', removedWords: '' },
-          wordConnectionRule: { changeFuncIdx: 0, rawHeadIdx: 1, headDir: 0, rawTailIdx: 1, tailDir: 1 },
-          postprocessing: { manner: { type: 0 }, addedWords: '', removedWords: '' },
-        },
-      };
-      const solver = await loader.callAndTerminate('getWcData', [rule, 0], 30000);
-      const head = document.querySelector('#head').value.trim();
-      const tail = document.querySelector('#tail').value.trim();
-      const graph = await loader.callAndTerminate('getGraph', [solver.graphSolver.graphs], 30000);
-      output.textContent = '탐색 중…';
-      const result = await searcher.search(graph, [head, tail], undefined, {
-        workers: Number(document.querySelector('#workers').value), timeoutMillis: 30000,
-        onEvent: (event) => {
-          if (event.action === 'stack') output.textContent = `분기 ${event.branchIndex ?? '-'} 탐색: ${event.payload.map((move) => move.join('→')).join(', ')}`;
-        },
-      });
-      output.textContent = `${result.isWin ? '이 이동은 승리합니다.' : '이 이동은 패배합니다.'}\n${JSON.stringify(result, null, 2)}`;
-    } catch (error) {
-      output.textContent = error.name === 'AbortError' ? '탐색을 중단했습니다.' : `${error.name}: ${error.message}`;
-    } finally {
-      search.disabled = false;
-      cancel.disabled = true;
-    }
-  });
-  cancel.addEventListener('click', () => { loader.terminate(); searcher.terminate(); });
-</script>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>끝말잇기 음절 승패 조회</title>
+  <style>
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { font: 16px/1.65 system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px 32px; color: #182333; background: #f7f9fc; }
+    h1 { margin-bottom: 10px; font-size: 28px; line-height: 1.3; }
+    h2 { margin: 0 0 14px; font-size: 19px; line-height: 1.4; }
+    p { margin: 10px 0; }
+    .intro, .hint { color: #526171; }
+    .hint { font-size: 14px; }
+    .card { margin-top: 22px; padding: 22px; border: 1px solid #d9e1eb; border-radius: 12px; background: white; }
+    fieldset { min-width: 0; margin: 0 0 18px; padding: 0; border: 0; }
+    legend { margin-bottom: 8px; font-size: 14px; color: #526171; }
+    .source-options { display: flex; flex-wrap: wrap; gap: 14px 24px; }
+    .source-option { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    label { display: block; margin-bottom: 7px; font-weight: 600; }
+    .source-option { margin: 0; font-weight: 400; }
+    textarea, input, select, button { font: inherit; border: 1px solid #b7c4d6; border-radius: 7px; }
+    textarea, input:not([type="radio"]), select { width: 100%; padding: 9px 10px; background: white; color: inherit; }
+    input[type="radio"] { width: 18px; height: 18px; margin: 0; accent-color: #2357be; }
+    textarea { display: block; resize: vertical; min-height: 116px; }
+    :focus-visible { outline: 3px solid #80a5ed; outline-offset: 3px; }
+    .settings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+    .settings label { font-size: 14px; }
+    #syllable { max-width: 140px; font-size: 22px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+    button { padding: 10px 20px; background: white; color: #182333; cursor: pointer; font-weight: 600; }
+    #search { background: #2357be; color: white; border-color: #2357be; }
+    button:disabled { opacity: .55; cursor: default; }
+    #result { border-left: 4px solid #93a6c0; }
+    #result[data-state="win"] { border-left-color: #19734b; }
+    #result[data-state="lose"] { border-left-color: #aa501c; }
+    #result[data-state="error"] { border-left-color: #bc3540; }
+    #result-title { margin-bottom: 8px; }
+    #progress:empty { display: none; }
+    details { margin-top: 16px; border-top: 1px solid #d9e1eb; padding-top: 12px; }
+    summary { cursor: pointer; color: #2357be; }
+    #path { white-space: pre-wrap; overflow-wrap: anywhere; }
+    @media (max-width: 580px) { body { margin-top: 24px; } .card { padding: 18px; } .settings { grid-template-columns: 1fr; gap: 12px; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+  <h1>끝말잇기 음절 승패 조회</h1>
+  <p class="intro">사전과 시작 음절을 골라, 그 음절로 단어를 내야 하는 사람이 이길 수 있는지 확인합니다.</p>
+  <form id="query-form" novalidate>
+    <section class="card" aria-labelledby="dictionary-title">
+      <h2 id="dictionary-title">1. 사전 선택</h2>
+      <fieldset>
+        <legend>사전 입력 방법</legend>
+        <div class="source-options">
+          <label class="source-option"><input type="radio" name="source" value="manual" checked> 직접 입력</label>
+          <label class="source-option"><input type="radio" name="source" value="file"> 텍스트 파일 업로드</label>
+        </div>
+      </fieldset>
+      <div id="manual-panel">
+        <label for="words">단어 목록</label>
+        <textarea id="words" rows="4" aria-describedby="manual-hint manual-summary">사과 과자 자두</textarea>
+        <p id="manual-hint" class="hint">단어를 공백 또는 줄바꿈으로 구분하세요.</p>
+        <p id="manual-summary" class="hint">입력된 단어 3개</p>
+      </div>
+      <div id="file-panel" hidden>
+        <label for="dictionary-file">사전 텍스트 파일 (.txt)</label>
+        <input id="dictionary-file" type="file" accept=".txt,text/plain" aria-describedby="file-hint file-summary">
+        <p id="file-hint" class="hint">UTF-8 텍스트 파일을 선택하세요. 단어는 공백 또는 줄바꿈으로 구분합니다.</p>
+        <p id="file-summary" class="hint" aria-live="polite">선택한 파일이 없습니다.</p>
+        <p class="hint">파일은 이 브라우저에서만 읽으며 서버로 전송하지 않습니다.</p>
+      </div>
+    </section>
+    <section class="card" aria-labelledby="query-title">
+      <h2 id="query-title">2. 음절 조회</h2>
+      <label for="syllable">조회할 음절 (한 글자)</label>
+      <input id="syllable" type="text" value="과" size="4" autocomplete="off" spellcheck="false" aria-describedby="syllable-hint">
+      <p id="syllable-hint" class="hint">예: ‘과’를 입력하면 ‘과’로 시작할 차례인 사람의 승패를 조회합니다.</p>
+      <div class="settings">
+        <div>
+          <label for="change-rule">두음 법칙</label>
+          <select id="change-rule"><option value="0">적용하지 않음</option><option value="1">표준 두음 법칙</option></select>
+        </div>
+        <div>
+          <label for="workers">병렬 워커 수</label>
+          <select id="workers"><option value="1">1개</option><option value="2" selected>2개</option><option value="4">4개</option></select>
+        </div>
+        <div>
+          <label for="timeout">제한 시간 (초)</label>
+          <input id="timeout" type="number" value="30" min="1" max="600" step="1" inputmode="numeric">
+        </div>
+      </div>
+      <div class="actions"><button id="search" type="submit">승패 조회</button><button id="cancel" type="button" disabled>중단</button></div>
+    </section>
+  </form>
+  <section id="result" class="card" data-state="idle" aria-live="polite" aria-atomic="true" aria-busy="false">
+    <h2 id="result-title">조회 대기 중</h2>
+    <p id="result-message">사전을 선택하고 한 글자를 입력한 뒤 조회하세요.</p>
+    <p id="progress" class="hint"></p>
+    <details id="result-details" hidden>
+      <summary>탐색 정보 보기</summary>
+      <p id="metrics" class="hint"></p>
+      <p class="hint">최적 진행 (첫 글자 → 끝 글자)</p>
+      <p id="path"></p>
+    </details>
+  </section>
+  <script type="module" src="../examples/app.mjs"></script>
+</body>
 </html>

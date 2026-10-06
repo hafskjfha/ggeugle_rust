@@ -1,7 +1,13 @@
 //! Synchronous searches and turn selection. No threads or workers are created.
 use crate::{
-    Error, Result, classify::prune_win_lose_nodes, graph::BipartiteDiGraph,
-    partitions::GraphPartitions, rules::get_head_tail, types::*, words::WordSolver,
+    Error, Result,
+    classify::prune_win_lose_nodes,
+    graph::BipartiteDiGraph,
+    partitions::GraphPartitions,
+    rules::{ChangeRule, get_head_tail},
+    solver::GraphSolver,
+    types::*,
+    words::WordSolver,
 };
 use rand::{Rng, seq::SliceRandom};
 use serde::{Deserialize, Serialize};
@@ -259,6 +265,66 @@ pub fn prepare_root_search(
         moves,
         result,
     })
+}
+
+fn syllable_search_graph(
+    solver: &GraphSolver,
+    syllable: &str,
+    change_func_idx: usize,
+) -> Result<BipartiteDiGraph> {
+    let mut chars = syllable.chars();
+    if chars.next().is_none() || chars.next().is_some() {
+        return Err(Error::InvalidInput(
+            "syllable must contain exactly one Unicode scalar value".into(),
+        ));
+    }
+    if change_func_idx > 10 {
+        return Err(Error::InvalidInput("changeFuncIdx must be 0..=10".into()));
+    }
+    let mut graph = solver.graphs.union();
+    if !graph.has_node(0, syllable) {
+        graph.add_node(0, syllable);
+        for head in ChangeRule(change_func_idx).forward(syllable) {
+            if graph.has_node(1, &head) {
+                graph.set_edge(0, syllable, &head, 1);
+            }
+        }
+    }
+    Ok(graph)
+}
+
+/// Prepare a turn starting at one syllable without consuming a dictionary word.
+/// The synthetic incoming move and any result retain the previous-mover
+/// orientation required by `finish_root_search`.
+pub fn prepare_syllable_search(
+    solver: &GraphSolver,
+    syllable: &str,
+    change_func_idx: usize,
+    prec: &PrecInfo,
+    limit: Option<Duration>,
+) -> Result<RootSearchPlan> {
+    let graph = syllable_search_graph(solver, syllable, change_func_idx)?;
+    prepare_root_search(&graph, &("__none".into(), syllable.into()), prec, limit)
+}
+
+/// Search a turn starting at one syllable and report the current player's win.
+/// The synthetic incoming move is excluded from the path and visited count.
+/// Determined-node reductions can return an empty path without a DFS visit.
+pub fn search_syllable(
+    solver: &GraphSolver,
+    syllable: &str,
+    change_func_idx: usize,
+    prec: &PrecInfo,
+    limit: Option<Duration>,
+) -> Result<SearchResult> {
+    let graph = syllable_search_graph(solver, syllable, change_func_idx)?;
+    let mut result = search_is_win(&graph, &("__none".into(), syllable.into()), prec, limit)?;
+    result.is_win = !result.is_win;
+    if !result.optimal_path.is_empty() {
+        result.optimal_path.remove(0);
+    }
+    result.visited = result.visited.saturating_sub(1);
+    Ok(result)
 }
 
 /// Search an independent reply and stream owned stack snapshots at most once a second.
