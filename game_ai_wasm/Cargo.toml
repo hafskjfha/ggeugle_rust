@@ -1,0 +1,18 @@
+[package]
+name = "game_ai_wasm"
+version = "0.1.0"
+edition = "2024"
+description = "Browser WebAssembly adapter for the Korean word-chain Rust engine"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+game_ai_rust = { path = "../game_ai_rust" }
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+wasm-bindgen = "=0.2.129"
+js-sys = "0.3"
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }

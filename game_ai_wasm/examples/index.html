@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>끝말잇기 WASM 탐색 예제</title>
+<style>
+  body { font: 16px/1.6 system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px; color: #182333; background: #f7f9fc; }
+  h1 { font-size: 26px; } label { display: block; margin-top: 18px; }
+  textarea, input, select, button { font: inherit; padding: 8px; border: 1px solid #b7c4d6; border-radius: 6px; }
+  textarea { width: 100%; box-sizing: border-box; } input { width: 80px; }
+  button { margin: 14px 8px 0 0; background: white; cursor: pointer; } button:first-of-type { background: #2357be; color: white; }
+  pre { padding: 18px; background: #e9eef7; white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+<h1>끝말잇기 WASM 탐색</h1>
+<p>단어를 입력하고 한 수의 승패를 탐색합니다. 분석과 병렬 탐색은 Web Worker에서 실행됩니다.</p>
+<label for="words">사전 (공백 또는 줄바꿈으로 구분)</label>
+<textarea id="words" rows="5">가가 가나 나가 나다 다가</textarea>
+<label>탐색할 이동 <input id="head" value="나" aria-label="첫 글자"> → <input id="tail" value="가" aria-label="끝 글자"></label>
+<label for="workers">병렬 워커 수 <select id="workers"><option>1</option><option selected>2</option><option>4</option></select></label>
+<button id="search">병렬 탐색</button><button id="cancel" disabled>중단</button>
+<pre id="result" aria-live="polite">탐색 대기 중</pre>
+<script type="module">
+  import { WorkerRunner, ParallelSearchRunner } from '../dist/index.js';
+  const loader = new WorkerRunner();
+  const searcher = new ParallelSearchRunner();
+  const output = document.querySelector('#result');
+  const search = document.querySelector('#search');
+  const cancel = document.querySelector('#cancel');
+  search.addEventListener('click', async () => {
+    search.disabled = true;
+    cancel.disabled = false;
+    output.textContent = '사전 분석 중…';
+    try {
+      const rule = {
+        id: 'example', metadata: { title: 'WASM 예제', updatedAt: 0, color: '' },
+        content: {
+          wordRule: { words: { type: 'manual', option: { content: document.querySelector('#words').value } },
+            regexFilter: '.*', addedWords: '', removedWords: '' },
+          wordConnectionRule: { changeFuncIdx: 0, rawHeadIdx: 1, headDir: 0, rawTailIdx: 1, tailDir: 1 },
+          postprocessing: { manner: { type: 0 }, addedWords: '', removedWords: '' },
+        },
+      };
+      const solver = await loader.callAndTerminate('getWcData', [rule, 0], 30000);
+      const head = document.querySelector('#head').value.trim();
+      const tail = document.querySelector('#tail').value.trim();
+      const graph = await loader.callAndTerminate('getGraph', [solver.graphSolver.graphs], 30000);
+      output.textContent = '탐색 중…';
+      const result = await searcher.search(graph, [head, tail], undefined, {
+        workers: Number(document.querySelector('#workers').value), timeoutMillis: 30000,
+        onEvent: (event) => {
+          if (event.action === 'stack') output.textContent = `분기 ${event.branchIndex ?? '-'} 탐색: ${event.payload.map((move) => move.join('→')).join(', ')}`;
+        },
+      });
+      output.textContent = `${result.isWin ? '이 이동은 승리합니다.' : '이 이동은 패배합니다.'}\n${JSON.stringify(result, null, 2)}`;
+    } catch (error) {
+      output.textContent = error.name === 'AbortError' ? '탐색을 중단했습니다.' : `${error.name}: ${error.message}`;
+    } finally {
+      search.disabled = false;
+      cancel.disabled = true;
+    }
+  });
+  cancel.addEventListener('click', () => { loader.terminate(); searcher.terminate(); });
+</script>
+</html>

@@ -5,7 +5,11 @@ use crate::{
 };
 use rand::{Rng, seq::SliceRandom};
 use serde::{Deserialize, Serialize};
-use std::time::{Duration, Instant};
+use std::time::Duration;
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+use std::time::Instant;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use web_time::Instant;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,6 +25,24 @@ pub struct SearchResult {
 pub enum SearchEvent {
     Stack { payload: Vec<SingleMove> },
     Done { payload: SearchResult },
+}
+
+/// A root movement after the same reductions used by the sequential search.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RootSearchPlan {
+    pub graph: BipartiteDiGraph,
+    pub movement: SingleMove,
+    pub moves: Vec<SingleMove>,
+    #[serde(default)]
+    pub result: Option<SearchResult>,
+}
+
+/// Includes the original root backtracking marker, needed to preserve path ties.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RootBranchResult {
+    pub result: SearchResult,
+    pub outcome: NodeType,
 }
 
 enum Visit {
@@ -80,7 +102,7 @@ fn prepare(
     start: Instant,
     limit: Option<Duration>,
     visit: &mut impl FnMut(Visit),
-) -> Result<std::result::Result<Frame, bool>> {
+) -> Result<std::result::Result<Frame, (BipartiteDiGraph, bool)>> {
     check_deadline(start, limit)?;
     visit(Visit::Push(movement.clone()));
     let mut graph = graph.get_reachable_graph(0, &movement.1, None);
@@ -92,11 +114,11 @@ fn prepare(
     match node_type {
         NodeType::Win => {
             visit(Visit::Pop(NodeType::Win));
-            Ok(Err(true))
+            Ok(Err((graph, true)))
         }
         NodeType::Lose => {
             visit(Visit::Pop(NodeType::Lose));
-            Ok(Err(false))
+            Ok(Err((graph, false)))
         }
         _ => {
             let mut moves = graph.get_moves_from_node(&movement.1, 0, 0, None);
@@ -121,7 +143,7 @@ fn search_next_turn(
 ) -> Result<bool> {
     let frame = match prepare(graph, movement, prec, start, limit, &mut visit)? {
         Ok(frame) => frame,
-        Err(outcome) => return Ok(outcome),
+        Err((_, outcome)) => return Ok(outcome),
     };
     let mut frames = vec![frame];
     let mut child_result = None;
@@ -151,7 +173,7 @@ fn search_next_turn(
         frame.next += 1;
         match prepare(&frame.graph, &movement, prec, start, limit, &mut visit)? {
             Ok(next) => frames.push(next),
-            Err(outcome) => child_result = Some(outcome),
+            Err((_, outcome)) => child_result = Some(outcome),
         }
     }
 }
@@ -162,11 +184,12 @@ fn run_search(
     prec: &PrecInfo,
     limit: Option<Duration>,
     mut on_stack: impl FnMut(Vec<SingleMove>),
-) -> Result<SearchResult> {
+) -> Result<RootBranchResult> {
     let start = Instant::now();
     let mut stack: Vec<SingleMove> = vec![];
     let mut max_branch: Vec<Option<Vec<SingleMove>>> = vec![];
     let mut visited = 0;
+    let mut root_outcome = NodeType::Route;
     let next_wins = search_next_turn(graph, movement, prec, start, limit, |visit| {
         match visit {
             Visit::Push(movement) => {
@@ -176,6 +199,9 @@ fn run_search(
             Visit::Pop(outcome) => {
                 let movement = stack.pop().expect("balanced search traversal");
                 let depth = stack.len();
+                if depth == 0 {
+                    root_outcome = outcome;
+                }
                 max_branch.resize_with(max_branch.len().max(depth + 2), || None);
                 let mut branch = max_branch[depth + 1].take().unwrap_or_default();
                 branch.push(movement);
@@ -195,9 +221,119 @@ fn run_search(
         .and_then(Option::take)
         .unwrap_or_default();
     optimal_path.reverse();
+    Ok(RootBranchResult {
+        result: SearchResult {
+            is_win: !next_wins,
+            duration: start.elapsed().as_secs_f64() * 1000.0,
+            optimal_path,
+            visited,
+        },
+        outcome: root_outcome,
+    })
+}
+
+/// Consume the incoming movement once and enumerate independent ordered replies.
+pub fn prepare_root_search(
+    graph: &BipartiteDiGraph,
+    movement: &SingleMove,
+    prec: &PrecInfo,
+    limit: Option<Duration>,
+) -> Result<RootSearchPlan> {
+    let start = Instant::now();
+    let (graph, moves, result) = match prepare(graph, movement, prec, start, limit, &mut |_| {})? {
+        Ok(frame) => (frame.graph, frame.moves, None),
+        Err((graph, next_wins)) => (
+            graph,
+            vec![],
+            Some(SearchResult {
+                is_win: !next_wins,
+                duration: start.elapsed().as_secs_f64() * 1000.0,
+                optimal_path: vec![movement.clone()],
+                visited: 1,
+            }),
+        ),
+    };
+    Ok(RootSearchPlan {
+        graph,
+        movement: movement.clone(),
+        moves,
+        result,
+    })
+}
+
+/// Search an independent reply and stream owned stack snapshots at most once a second.
+/// The final result is returned; this callback receives only Stack events.
+pub fn search_root_branch(
+    graph: &BipartiteDiGraph,
+    movement: &SingleMove,
+    prec: &PrecInfo,
+    limit: Option<Duration>,
+    mut callback: impl FnMut(SearchEvent),
+) -> Result<RootBranchResult> {
+    let mut last_sent = None;
+    run_search(graph, movement, prec, limit, |stack| {
+        if last_sent.is_none_or(|last: Instant| last.elapsed() >= Duration::from_secs(1)) {
+            callback(SearchEvent::Stack { payload: stack });
+            last_sent = Some(Instant::now());
+        }
+    })
+}
+
+/// Merge the completed ordered prefix exactly as sequential DFS backtracking does.
+/// Results after the first winning reply need not be present and are not counted.
+pub fn finish_root_search(
+    plan: &RootSearchPlan,
+    results: &[Option<RootBranchResult>],
+    duration: f64,
+) -> Result<SearchResult> {
+    if !duration.is_finite() || duration < 0.0 {
+        return Err(Error::InvalidInput(
+            "duration must be finite and nonnegative".into(),
+        ));
+    }
+    if let Some(result) = &plan.result {
+        let mut result = result.clone();
+        result.duration = duration;
+        return Ok(result);
+    }
+    if results.len() > plan.moves.len() {
+        return Err(Error::InvalidInput("too many root branch results".into()));
+    }
+    let mut selected: Option<&Vec<SingleMove>> = None;
+    let mut visited = 1usize;
+    let mut is_win = true;
+    for (index, movement) in plan.moves.iter().enumerate() {
+        let branch = results
+            .get(index)
+            .and_then(Option::as_ref)
+            .ok_or_else(|| Error::InvalidInput(format!("root branch {index} has not completed")))?;
+        if !matches!(branch.outcome, NodeType::Win | NodeType::Lose)
+            || branch.result.optimal_path.first() != Some(movement)
+        {
+            return Err(Error::InvalidInput(format!(
+                "invalid result for root branch {index}"
+            )));
+        }
+        visited = visited
+            .checked_add(branch.result.visited)
+            .ok_or_else(|| Error::InvalidInput("root search visited count overflow".into()))?;
+        if branch.outcome == NodeType::Win
+            || selected.is_none_or(|path| path.len() < branch.result.optimal_path.len())
+        {
+            selected = Some(&branch.result.optimal_path);
+        }
+        if branch.result.is_win {
+            is_win = false;
+            break;
+        }
+    }
+    let mut optimal_path = vec![plan.movement.clone()];
+    if let Some(branch) = selected {
+        optimal_path.extend_from_slice(branch);
+    }
     Ok(SearchResult {
-        is_win: !next_wins,
-        duration: start.elapsed().as_secs_f64() * 1000.0,
+        is_win,
+        duration,
         optimal_path,
         visited,
     })
@@ -209,7 +345,7 @@ pub fn search_is_win(
     prec: &PrecInfo,
     limit: Option<Duration>,
 ) -> Result<SearchResult> {
-    run_search(graph, movement, prec, limit, |_| {})
+    run_search(graph, movement, prec, limit, |_| {}).map(|branch| branch.result)
 }
 
 pub fn start_streaming_single_thread_search(
@@ -225,7 +361,8 @@ pub fn start_streaming_single_thread_search(
             callback(SearchEvent::Stack { payload: stack });
             last_sent = Some(Instant::now());
         }
-    })?;
+    })?
+    .result;
     let mut streamed = result.clone();
     streamed.duration = (streamed.duration / 10.0).round() / 100.0;
     callback(SearchEvent::Done { payload: streamed });

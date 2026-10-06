@@ -1,0 +1,25 @@
+{
+  "name": "wordchain-game-ai-wasm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./worker": "./dist/worker-entry.js",
+    "./wasm": "./pkg/game_ai_wasm_bg.wasm"
+  },
+  "files": ["dist", "pkg", "README.md"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "build:ts": "tsc -p tsconfig.json",
+    "build": "npm run build:wasm && npm run build:ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "test:js": "npm run build:ts && node --test tests/*.test.mjs",
+    "example": "node scripts/serve.mjs"
+  },
+  "devDependencies": { "typescript": "^5.9.2" }
+}

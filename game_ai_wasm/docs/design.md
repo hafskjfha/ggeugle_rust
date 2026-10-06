@@ -1,0 +1,22 @@
+# game_ai_wasm 설계
+
+## 목적과 제약
+
+별도 `game_ai_wasm/` 패키지에서 기존 끝말잇기 엔진을 브라우저 WASM으로 사용한다. `game_ai_rust`를 경로 의존성으로 재사용하며 TypeScript 탐색 알고리즘은 복제하지 않는다. 기존 네이티브 Rust와 TypeScript 패키지의 API는 유지한다.
+
+## 구성
+
+- Rust 코어: WASM에서 동작하는 시계와 난수 백엔드, 첫 탐색 분기의 준비와 결과 병합 API만 추가한다.
+- WASM 어댑터: `wasm-bindgen`과 `serde-wasm-bindgen`으로 기존 규칙, 그래프, solver, 탐색, AI 수 선택을 JavaScript에 노출한다. 직렬화된 Map은 일반 객체이며 결과 필드는 기존 camelCase를 사용한다.
+- TypeScript API: WASM 초기화, 사전 URL을 fetch한 뒤 manual 규칙으로 전달하는 로딩, 형식 선언을 담당한다. 파일 사전은 브라우저에서 지원하지 않으며 사용자가 파일 내용을 manual 규칙으로 전달한다.
+- 워커: 모듈 Web Worker마다 독립 WASM 인스턴스를 사용한다. 공유 메모리와 Rust OS 스레드는 사용하지 않는다. 일반 호출 runner는 이전 호출을 취소한다. 병렬 runner는 한 이동 이후 상대 응수들을 제한된 워커 수에 배분한다.
+
+## 탐색 계약
+
+`searchIsWin`의 `isWin`은 입력 이동을 한 플레이어의 승리 여부다. 시간은 새 패키지 전체에서 밀리초다. 입력 그래프는 변경하지 않는다. Rust의 `prepareRootSearch`는 입력 이동을 정확히 한 번 소비하고 기존 가지치기와 우선순위 정렬을 적용한다. `finishRootSearch`는 응수 결과를 원래 순서로 병합한다. 상대의 승리 응수가 발견되면 원래 플레이어는 패배하며, 앞선 응수들의 결과가 알려진 시점에 나머지 작업을 취소할 수 있다. 모든 응수가 패배해야 원래 플레이어가 승리한다. 최적 경로의 선택과 동률 순서는 단일 탐색과 동일하게 유지한다.
+
+취소, timeout, 워커 오류는 Promise를 reject하고 모든 관련 워커와 타이머를 정리한다. 취소된 호출은 이후 결과나 완료 이벤트를 전달하지 않는다. 전체 timeout에는 WASM 초기화와 준비, 대기 시간을 포함한다. 진행 이벤트는 분기 인덱스와 stack을 제공한다.
+
+## 검증
+
+기존 Rust/TS 테스트, 새로운 Rust 분기 병합의 단일 탐색 대비 parity, 실제 WASM Node 실행, 워커 병렬/취소/timeout/오류 테스트, 브라우저 예제를 검증한다. WASM 모듈과 JS glue는 빌드 산출물로 생성하고 소스에 커밋하지 않는다.
