@@ -43,6 +43,7 @@ export async function createEngineFunctions(wasmInput?: WasmInput): Promise<Engi
     getNextWords: (solver, history) => raw.getNextWords(solver, history),
     getSyllableInfo: (solver, syllable, changeFuncIdx = 0) => raw.getSyllableInfo(solver, syllable, changeFuncIdx),
     afterHistory: (solver, history, flow = solver.flow as 0 | 1) => raw.afterHistory(solver, history, flow),
+    withHistory: (solver, history, flow = solver.flow as 0 | 1) => raw.withHistory(solver, history, flow),
     chooseMove: (solver, history, options = {}, callback) => raw.chooseMove(solver, history, options, callback),
     isGameEnd: (solver, history, stealable = false) => raw.isGameEnd(solver, history, stealable),
     searchIsWin: (graph, move, prec = DEFAULT_PRECEDENCE, timeoutMillis) =>
@@ -60,6 +61,7 @@ export async function createEngineFunctions(wasmInput?: WasmInput): Promise<Engi
     searchRootBranch: (graph, move, prec = DEFAULT_PRECEDENCE, timeoutMillis, callback) =>
       raw.searchRootBranch(graph, move, prec, timeoutMillis, callback),
     finishRootSearch: (plan, results, duration) => raw.finishRootSearch(plan, results, duration),
+    finishSyllableSearch: (plan, results, duration) => raw.finishSyllableSearch(plan, results, duration),
     dictionaryUrls: (option) => raw.dictionaryUrls(option),
     getPresets: () => raw.getPresets(),
   };

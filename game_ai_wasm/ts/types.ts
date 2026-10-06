@@ -70,6 +70,10 @@ export interface SearchResult {
   optimalPath: SingleMove[];
   visited: number;
 }
+export interface SyllableSearchResult extends SearchResult {
+  /** A first move proven to win in this remaining-word state, when available. */
+  winningMove: SingleMove | null;
+}
 export type SearchEvent =
   | { action: 'stack'; payload: SingleMove[] }
   | { action: 'done'; payload: SearchResult };
@@ -114,6 +118,7 @@ export interface EngineFunctions {
   getNextWords(solver: WordSolver, history: string[]): string[];
   getSyllableInfo(solver: WordSolver, syllable: string, changeFuncIdx?: number): SyllableInfo;
   afterHistory(solver: WordSolver, history: string[], flow?: NodePos): GraphSolver;
+  withHistory(solver: WordSolver, history: string[], flow?: NodePos): WordSolver;
   chooseMove(solver: WordSolver, history: string[], options?: AiOptions,
     callback?: (event: GameEvent) => void): string | null;
   isGameEnd(solver: WordSolver, history: string[], stealable?: boolean): boolean;
@@ -128,10 +133,11 @@ export interface EngineFunctions {
     prec?: PrecInfo, timeoutMillis?: number): RootSearchPlan;
   /** isWin describes the player whose turn starts with the queried syllable. */
   searchSyllable(solver: GraphSolver, syllable: string, changeFuncIdx?: number,
-    prec?: PrecInfo, timeoutMillis?: number): SearchResult;
+    prec?: PrecInfo, timeoutMillis?: number): SyllableSearchResult;
   searchRootBranch(graph: Graph, move: SingleMove, prec?: PrecInfo, timeoutMillis?: number,
     callback?: (event: SearchEvent) => void): RootBranchResult;
   finishRootSearch(plan: RootSearchPlan, results: (RootBranchResult | null)[], duration: number): SearchResult;
+  finishSyllableSearch(plan: RootSearchPlan, results: (RootBranchResult | null)[], duration: number): SyllableSearchResult;
   dictionaryUrls(option: SelectedWordsOption): string[];
   getPresets(): Presets;
 }

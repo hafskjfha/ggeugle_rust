@@ -6,6 +6,7 @@ const loader = new WorkerRunner();
 const searcher = new ParallelSearchRunner();
 const form = document.querySelector('#query-form');
 const words = document.querySelector('#words');
+const historyInput = document.querySelector('#history');
 const syllableInput = document.querySelector('#syllable');
 const ruleInput = document.querySelector('#change-rule');
 const workersInput = document.querySelector('#workers');
@@ -99,18 +100,18 @@ function isCurrent(run) {
   return activeRun === run && run.version === queryVersion;
 }
 
-function showInitialInfo(info, changeFuncIdx) {
+function showInitialInfo(info, changeFuncIdx, usedCount = 0) {
   const description = describeSyllableInfo(info, changeFuncIdx);
-  resultContext.textContent = `${description.ruleLabel} · 초기 분류: ${description.classificationLabel}`;
+  resultContext.textContent = `${description.ruleLabel} · 초기 분류: ${description.classificationLabel}${usedCount ? ` · 사용 단어 ${usedCount}개 제외` : ''}`;
   resultContext.hidden = false;
 }
 
-function showResult(result, syllable, elapsedMillis, info, changeFuncIdx) {
+function showResult(result, syllable, elapsedMillis, info, changeFuncIdx, solver, usedCount) {
   showStatus(`‘${syllable}’로 시작할 차례인 사람은 ${result.isWin ? '필승' : '필패'}입니다.`,
     `두 사람이 최선의 수를 두면, 이 차례의 사람은 ${result.isWin ? '승리' : '패배'}합니다.`,
     result.isWin ? 'win' : 'lose');
-  const explanation = explainSyllableResult(info, result, changeFuncIdx);
-  showInitialInfo(info, changeFuncIdx);
+  const explanation = explainSyllableResult(info, result, changeFuncIdx, solver.wordMap);
+  showInitialInfo(info, changeFuncIdx, usedCount);
   resultProof.textContent = `판정 방식: ${explanation.methodLabel}`;
   resultProof.hidden = false;
   if (explanation.winningWord) {
@@ -149,6 +150,7 @@ form.addEventListener('submit', async (event) => {
   }
   const changeFuncIdx = Number(ruleInput.value);
   const workers = Number(workersInput.value);
+  const history = [...new Set(historyInput.value.trim().split(/\s+/u).filter(Boolean))];
   const run = { version: ++queryVersion, controller: new AbortController() };
   activeRun = run;
   updateButtons();
@@ -158,13 +160,18 @@ form.addEventListener('submit', async (event) => {
   let lastProgress = 0;
   let info;
   try {
-    const solver = await loader.callAndTerminate('getWcData', [makeRule(dictionary.content, changeFuncIdx), 0], seconds * 1000);
+    let solver = await loader.callAndTerminate('getWcData', [makeRule(dictionary.content, changeFuncIdx), 0], seconds * 1000);
     if (!isCurrent(run)) return;
+    if (history.length) {
+      solver = await loader.callAndTerminate('withHistory', [solver, history, 0],
+        Math.max(0, deadline - performance.now()));
+      if (!isCurrent(run)) return;
+    }
     info = await loader.callAndTerminate('getSyllableInfo', [solver, syllable, changeFuncIdx],
       Math.max(0, deadline - performance.now()));
     if (!isCurrent(run)) return;
     showStatus('승패 탐색 중…', `‘${syllable}’로 시작할 차례인 사람의 승패를 조회하고 있습니다.`, 'loading');
-    showInitialInfo(info, changeFuncIdx);
+    showInitialInfo(info, changeFuncIdx, history.length);
     const result = await searcher.searchSyllable(solver.graphSolver, syllable, changeFuncIdx, undefined, {
       workers, timeoutMillis: Math.max(0, deadline - performance.now()), signal: run.controller.signal,
       onEvent(event) {
@@ -174,14 +181,14 @@ form.addEventListener('submit', async (event) => {
         progress.textContent = `${branch}현재 ${event.payload.length.toLocaleString('ko-KR')}수까지 탐색 중`;
       },
     });
-    if (isCurrent(run)) showResult(result, syllable, performance.now() - started, info, changeFuncIdx);
+    if (isCurrent(run)) showResult(result, syllable, performance.now() - started, info, changeFuncIdx, solver, history.length);
   } catch (error) {
     if (!isCurrent(run)) return;
     if (error?.name === 'AbortError') {
       showStatus('조회 중단', '조회를 중단했습니다. 다시 조회할 수 있습니다.');
     } else if (error?.name === 'TimeoutError') {
       showStatus('미판정 — 제한 시간 초과', `${seconds}초 안에 승패를 확정하지 못했습니다. 제한 시간을 늘려 다시 조회하세요.`, 'error');
-      if (info) showInitialInfo(info, changeFuncIdx);
+      if (info) showInitialInfo(info, changeFuncIdx, history.length);
     } else {
       showStatus('조회 실패', `승패를 조회할 수 없습니다. ${error?.message ?? String(error)}`, 'error');
     }
@@ -202,7 +209,7 @@ words.addEventListener('input', () => {
   updateManualSummary();
   invalidateQuery();
 });
-for (const input of [syllableInput, timeoutInput]) input.addEventListener('input', invalidateQuery);
+for (const input of [syllableInput, timeoutInput, historyInput]) input.addEventListener('input', invalidateQuery);
 for (const input of [ruleInput, workersInput]) input.addEventListener('change', invalidateQuery);
 for (const radio of form.querySelectorAll('input[name="source"]')) {
   radio.addEventListener('change', () => {

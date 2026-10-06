@@ -36,4 +36,11 @@ if (!loaded.error) {
     assert.equal(explanation.classificationLabel, '패');
     assert.equal(explanation.winningWord, null);
   });
+  test('route wins show the proven first move rather than infer a winner from the path', () => {
+    const info = { nodeType: 'route', winningWords: [] };
+    const words = { content: { 나: { 나: ['나나'], 다: ['나다'] } } };
+    const result = { isWin: true, visited: 4, optimalPath: [['나', '나']], winningMove: ['나', '다'] };
+    assert.equal(explainSyllableResult(info, result, 0, words).winningWord, '나다');
+    assert.equal(explainSyllableResult(info, { ...result, winningMove: null }, 0, words).winningWord, null);
+  });
 }

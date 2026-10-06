@@ -138,6 +138,13 @@ pub fn after_history(solver: JsValue, history: JsValue, flow: usize) -> Result<J
     encode(&solver.after_history(&history, flow).map_err(js_error)?)
 }
 
+#[wasm_bindgen(js_name = withHistory)]
+pub fn with_history(solver: JsValue, history: JsValue, flow: usize) -> Result<JsValue, JsValue> {
+    let solver = decode::<core::WordSolver>(solver)?;
+    let history = decode::<Vec<String>>(history)?;
+    encode(&solver.with_history(&history, flow).map_err(js_error)?)
+}
+
 #[wasm_bindgen(js_name = chooseMove)]
 pub fn choose_move(
     solver: JsValue,
@@ -229,7 +236,7 @@ pub fn search_syllable(
     let prec = decode::<core::PrecInfo>(prec)?;
     let limit = timeout(timeout_millis).map_err(js_error)?;
     encode(
-        &core::search_syllable(&solver, syllable, change_func_idx, &prec, limit)
+        &core::search_syllable_with_witness(&solver, syllable, change_func_idx, &prec, limit)
             .map_err(js_error)?,
     )
 }
@@ -267,6 +274,17 @@ pub fn finish_root_search(
     let plan = decode::<core::RootSearchPlan>(plan)?;
     let results = decode::<Vec<Option<core::RootBranchResult>>>(results)?;
     encode(&core::finish_root_search(&plan, &results, duration).map_err(js_error)?)
+}
+
+#[wasm_bindgen(js_name = finishSyllableSearch)]
+pub fn finish_syllable_search(
+    plan: JsValue,
+    results: JsValue,
+    duration: f64,
+) -> Result<JsValue, JsValue> {
+    let plan = decode::<core::RootSearchPlan>(plan)?;
+    let results = decode::<Vec<Option<core::RootBranchResult>>>(results)?;
+    encode(&core::finish_syllable_search(&plan, &results, duration).map_err(js_error)?)
 }
 
 #[wasm_bindgen(js_name = startStreamingSingleThreadSearch)]

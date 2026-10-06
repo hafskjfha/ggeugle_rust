@@ -243,6 +243,36 @@ impl WordSolver {
         }
         Ok(GraphSolver::new(graph, flow))
     }
+    /// Reclassify a game position and keep only its remaining concrete words.
+    /// Repeated history entries, such as a stolen opening, consume a word once.
+    pub fn with_history(&self, history: &[String], flow: usize) -> Result<WordSolver> {
+        if flow > 1 {
+            return Err(Error::InvalidInput("flow must be 0 or 1".into()));
+        }
+        let mut seen = std::collections::HashSet::new();
+        let mut used = Vec::new();
+        for word in history {
+            if seen.insert(word) {
+                if !self.word_map.has_word(word, self.head_idx, self.tail_idx)? {
+                    return Err(Error::InvalidInput(format!("unknown history word: {word}")));
+                }
+                let (head, tail) = get_head_tail(word, self.head_idx, self.tail_idx)?;
+                used.push((head, tail, word));
+            }
+        }
+        let graph_solver = self.after_history(history, flow)?;
+        let mut word_map = self.word_map.clone();
+        for (head, tail, word) in used {
+            word_map.remove_word(&head, &tail, word);
+        }
+        Ok(Self {
+            graph_solver,
+            word_map,
+            head_idx: self.head_idx,
+            tail_idx: self.tail_idx,
+            flow,
+        })
+    }
     fn words_in_partition(&self, start: &str, end: &str, key: &str) -> Vec<String> {
         let (begin, end_idx) = self
             .graph_solver

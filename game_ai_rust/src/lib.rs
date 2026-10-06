@@ -14,9 +14,10 @@ pub mod solver;
 pub mod strategy;
 pub mod words;
 pub use ai::{
-    AiOptions, GameEvent, RootBranchResult, RootSearchPlan, SearchEvent, SearchResult, choose_move,
-    choose_move_with_callback, finish_root_search, is_game_end, prepare_root_search,
-    prepare_syllable_search, search_is_win, search_root_branch, search_syllable,
+    AiOptions, GameEvent, RootBranchResult, RootSearchPlan, SearchEvent, SearchResult,
+    SyllableSearchResult, choose_move, choose_move_with_callback, finish_root_search,
+    finish_syllable_search, is_game_end, prepare_root_search, prepare_syllable_search,
+    search_is_win, search_root_branch, search_syllable, search_syllable_with_witness,
     start_streaming_single_thread_search,
 };
 pub use edge_map::{EdgeCounter, EdgeMap};

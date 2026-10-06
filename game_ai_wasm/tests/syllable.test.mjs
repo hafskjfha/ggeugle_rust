@@ -81,3 +81,41 @@ test('syllable validation rejects empty or multiple characters and keeps the eng
     { name: 'TimeoutError' });
   assert.equal(api.searchSyllable(solver.graphSolver, '사').isWin, true);
 });
+
+test('a winning syllable returns a genuinely winning first move instead of a longer losing path', async (t) => {
+  const runner = new ParallelSearchRunner({ workerFactory: nodeWorkerFactory, wasmUrl });
+  t.after(() => runner.terminate());
+  for (const [words, change, syllable] of [
+    [['가가', '가나', '나나', '나다', '다가'], 0, '나'],
+    [['라니', '라가니', '나라', '니나'], 1, '라'],
+  ]) {
+    const solver = await api.getWcData(rule(words, change));
+    const graph = api.getGraph(solver.graphSolver.graphs);
+    const serial = api.searchSyllable(solver.graphSolver, syllable, change);
+    const parallel = await runner.searchSyllable(solver.graphSolver, syllable, change, undefined,
+      { workers: 2, timeoutMillis: 10000 });
+    assert.equal(serial.isWin, true);
+    assert.equal(parallel.isWin, true);
+    assert.equal(api.searchIsWin(graph, serial.optimalPath[0]).isWin, true);
+    assert.ok(serial.winningMove);
+    assert.deepEqual(serial.optimalPath[0], serial.winningMove);
+    assert.equal(api.searchIsWin(graph, serial.winningMove).isWin, true);
+    assert.deepEqual(parallel.winningMove, serial.winningMove);
+    assert.deepEqual(parallel.optimalPath, serial.optimalPath);
+  }
+});
+
+test('history queries consume exact words and do not change the original dictionary', async () => {
+  assert.equal(typeof api.withHistory, 'function');
+  const solver = await api.getWcData(rule(['가나', '나가']));
+  assert.equal(api.searchSyllable(solver.graphSolver, '나').isWin, false);
+  const remaining = api.withHistory(solver, ['가나']);
+  assert.deepEqual(api.getNextWords(remaining, []), ['나가']);
+  assert.equal(api.searchSyllable(remaining.graphSolver, '나').isWin, true);
+  assert.deepEqual(api.getNextWords(solver, []), ['가나', '나가']);
+  assert.throws(() => api.withHistory(solver, ['없는단어']));
+  const pair = await api.getWcData(rule(['가나', '가시나', '나가']));
+  const reduced = api.withHistory(pair, ['가나', '가나']);
+  assert.deepEqual(reduced.wordMap.content['가']['나'], ['가시나']);
+  assert.ok(!api.getSyllableInfo(reduced, '가').winningWords.includes('가나'));
+});

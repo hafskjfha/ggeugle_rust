@@ -1,5 +1,5 @@
 import { DEFAULT_PRECEDENCE } from "./engine.js";
-import type { Graph, GraphSolver, PrecInfo, RootBranchResult, RootSearchPlan, SearchEvent, SearchResult, SingleMove } from "./types.js";
+import type { Graph, GraphSolver, PrecInfo, RootBranchResult, RootSearchPlan, SearchEvent, SearchResult, SingleMove, SyllableSearchResult } from "./types.js";
 import { abortError, timeoutError, validateTimeout, WorkerRunner, type WorkerRunnerOptions } from "./worker-runner.js";
 
 export type ParallelSearchEvent = SearchEvent & { branchIndex: number | null };
@@ -43,8 +43,8 @@ export class ParallelSearchRunner {
     changeFuncIdx = 0,
     prec: PrecInfo = DEFAULT_PRECEDENCE,
     options: ParallelSearchOptions = {},
-  ): Promise<SearchResult> {
-    return this.runSearch({ kind: "syllable", solver, syllable, changeFuncIdx }, prec, options);
+  ): Promise<SyllableSearchResult> {
+    return this.runSearch({ kind: "syllable", solver, syllable, changeFuncIdx }, prec, options) as Promise<SyllableSearchResult>;
   }
 
   private runSearch(source: SearchSource, prec: PrecInfo, options: ParallelSearchOptions): Promise<SearchResult> {
@@ -104,13 +104,7 @@ export class ParallelSearchRunner {
         settled = true;
         cleanup();
         if (source.kind === "syllable") {
-          result = {
-            ...result,
-            isWin: !result.isWin,
-            optimalPath: result.optimalPath.slice(1),
-            visited: Math.max(0, result.visited - 1),
-            duration: performance.now() - started,
-          };
+          result = { ...result, duration: performance.now() - started };
         }
         try {
           options.onEvent?.({ action: "done", payload: result, branchIndex: null });
@@ -133,7 +127,11 @@ export class ParallelSearchRunner {
         if (settled) return;
         checkDeadline();
         if (plan.result !== null) {
-          complete(plan.result);
+          if (source.kind === "syllable") {
+            const normalized: SyllableSearchResult = { ...plan.result, isWin: !plan.result.isWin,
+              optimalPath: plan.result.optimalPath.slice(1), visited: Math.max(0, plan.result.visited - 1), winningMove: null };
+            complete(normalized);
+          } else complete(plan.result);
           return;
         }
         const results: (RootBranchResult | null)[] = plan.moves.map(() => null);
@@ -148,7 +146,8 @@ export class ParallelSearchRunner {
           for (const runner of runners) runner.terminate();
           runners.clear();
           const finalizer = newRunner();
-          finalizer.callAndTerminate("finishRootSearch", [plan, results, performance.now() - started], remaining()).then(complete, fail);
+          const method = source.kind === "syllable" ? "finishSyllableSearch" : "finishRootSearch";
+          finalizer.callAndTerminate(method, [plan, results, performance.now() - started], remaining()).then(complete, fail);
         };
 
         const dispatch = (runner: WorkerRunner) => {

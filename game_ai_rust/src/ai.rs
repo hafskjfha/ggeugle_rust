@@ -26,6 +26,15 @@ pub struct SearchResult {
     pub optimal_path: Vec<SingleMove>,
     pub visited: usize,
 }
+
+/// A current-player syllable result with an independently proven first move.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyllableSearchResult {
+    #[serde(flatten)]
+    pub result: SearchResult,
+    pub winning_move: Option<SingleMove>,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "lowercase")]
 pub enum SearchEvent {
@@ -303,8 +312,40 @@ pub fn prepare_syllable_search(
     prec: &PrecInfo,
     limit: Option<Duration>,
 ) -> Result<RootSearchPlan> {
+    let start = Instant::now();
     let graph = syllable_search_graph(solver, syllable, change_func_idx)?;
-    prepare_root_search(&graph, &("__none".into(), syllable.into()), prec, limit)
+    check_deadline(start, limit)?;
+    let movement = ("__none".into(), syllable.into());
+    let node_type = solver
+        .get_node_type(syllable, 0, Some(ChangeRule(change_func_idx)))
+        .normalized();
+    if matches!(node_type, NodeType::Win | NodeType::Lose) {
+        // Starting a syllable consumes no word, so the solver's classification
+        // remains valid even when search's shorter reduction pass misses it.
+        check_deadline(start, limit)?;
+        return Ok(RootSearchPlan {
+            graph,
+            movement: movement.clone(),
+            moves: vec![],
+            result: Some(SearchResult {
+                is_win: node_type == NodeType::Lose,
+                duration: start.elapsed().as_secs_f64() * 1000.0,
+                optimal_path: vec![movement],
+                visited: 1,
+            }),
+        });
+    }
+    let mut plan = prepare_root_search(
+        &graph,
+        &movement,
+        prec,
+        limit.map(|limit| limit.saturating_sub(start.elapsed())),
+    )?;
+    check_deadline(start, limit)?;
+    if let Some(result) = &mut plan.result {
+        result.duration = start.elapsed().as_secs_f64() * 1000.0;
+    }
+    Ok(plan)
 }
 
 /// Search a turn starting at one syllable and report the current player's win.
@@ -317,13 +358,41 @@ pub fn search_syllable(
     prec: &PrecInfo,
     limit: Option<Duration>,
 ) -> Result<SearchResult> {
-    let graph = syllable_search_graph(solver, syllable, change_func_idx)?;
-    let mut result = search_is_win(&graph, &("__none".into(), syllable.into()), prec, limit)?;
-    result.is_win = !result.is_win;
-    if !result.optimal_path.is_empty() {
-        result.optimal_path.remove(0);
+    search_syllable_with_witness(solver, syllable, change_func_idx, prec, limit)
+        .map(|result| result.result)
+}
+
+/// Search each ordered root reply once and retain the proven winning reply.
+pub fn search_syllable_with_witness(
+    solver: &GraphSolver,
+    syllable: &str,
+    change_func_idx: usize,
+    prec: &PrecInfo,
+    limit: Option<Duration>,
+) -> Result<SyllableSearchResult> {
+    let start = Instant::now();
+    let plan = prepare_syllable_search(solver, syllable, change_func_idx, prec, limit)?;
+    let mut branches = Vec::new();
+    if plan.result.is_none() {
+        for movement in &plan.moves {
+            check_deadline(start, limit)?;
+            let branch = run_search(
+                &plan.graph,
+                movement,
+                prec,
+                limit.map(|limit| limit.saturating_sub(start.elapsed())),
+                |_| {},
+            )?;
+            let wins = branch.result.is_win;
+            branches.push(Some(branch));
+            if wins {
+                break;
+            }
+        }
     }
-    result.visited = result.visited.saturating_sub(1);
+    let mut result = finish_syllable_search(&plan, &branches, 0.0)?;
+    check_deadline(start, limit)?;
+    result.result.duration = start.elapsed().as_secs_f64() * 1000.0;
     Ok(result)
 }
 
@@ -402,6 +471,47 @@ pub fn finish_root_search(
         duration,
         optimal_path,
         visited,
+    })
+}
+
+/// Normalize a synthetic root to the current player and select its winning
+/// first move by the branch result, independent of legacy backtracking markers.
+pub fn finish_syllable_search(
+    plan: &RootSearchPlan,
+    results: &[Option<RootBranchResult>],
+    duration: f64,
+) -> Result<SyllableSearchResult> {
+    if plan.movement.0 != "__none" {
+        return Err(Error::InvalidInput(
+            "syllable search requires a synthetic root".into(),
+        ));
+    }
+    let mut result = finish_root_search(plan, results, duration)?;
+    result.is_win = !result.is_win;
+    if !result.optimal_path.is_empty() {
+        result.optimal_path.remove(0);
+    }
+    result.visited = result.visited.saturating_sub(1);
+    let mut winning_move = None;
+    if result.is_win && plan.result.is_none() {
+        if let Some((movement, branch)) =
+            plan.moves
+                .iter()
+                .zip(results)
+                .find_map(|(movement, branch)| {
+                    branch
+                        .as_ref()
+                        .filter(|branch| branch.result.is_win)
+                        .map(|branch| (movement, branch))
+                })
+        {
+            winning_move = Some(movement.clone());
+            result.optimal_path = branch.result.optimal_path.clone();
+        }
+    }
+    Ok(SyllableSearchResult {
+        result,
+        winning_move,
     })
 }
 

@@ -76,6 +76,9 @@
       <label for="syllable">조회할 음절 (한 글자)</label>
       <input id="syllable" type="text" value="과" size="4" autocomplete="off" spellcheck="false" aria-describedby="syllable-hint">
       <p id="syllable-hint" class="hint">예: ‘과’를 입력하면 ‘과’로 시작할 차례인 사람의 승패를 조회합니다.</p>
+      <label for="history">이미 사용한 단어 (선택)</label>
+      <textarea id="history" rows="2" placeholder="예: 결핍" aria-describedby="history-hint"></textarea>
+      <p id="history-hint" class="hint">입력한 단어를 제외한 남은 사전으로 판정합니다. ‘결핍’ 뒤의 ‘핍’을 조회하려면 여기에 ‘결핍’을 입력하세요. 실제 대국에서는 이전에 사용한 모든 단어를 공백이나 줄바꿈으로 구분해 입력합니다.</p>
       <div class="settings">
         <div>
           <label for="change-rule">두음 법칙</label>
@@ -103,7 +106,8 @@
     <details id="result-details" hidden>
       <summary>탐색 정보 보기</summary>
       <p id="metrics" class="hint"></p>
-      <p class="hint">탐색 중 저장한 경로 (첫 글자 → 끝 글자)</p>
+      <p class="hint">참고용 탐색 기록 (첫 글자 → 끝 글자)</p>
+      <p class="hint">첫 승리 단어는 검증된 수입니다. 탐색 기록의 모든 수가 필승 수순이라는 뜻은 아닙니다.</p>
       <p id="path"></p>
     </details>
   </section>

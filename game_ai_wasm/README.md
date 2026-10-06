@@ -26,6 +26,10 @@ npm run example
 
 결과에는 적용한 규칙, 초기 분류와 판정 방식을 함께 표시합니다. 초기 `route`는 승패가 미확정이라는 뜻이며 추가 탐색으로 승리나 패배가 확정될 수 있습니다. 승패 전파와 가지치기만으로 확정된 결과는 별도 DFS 경로를 만들지 않습니다. 이때 정적 분석에서 확인한 첫 승리 단어를 표시합니다. 저장된 탐색 경로도 가지치기로 판정이 끝난 지점까지만 포함할 수 있습니다.
 
+추가 탐색으로 승리를 확정하면 `winningMove`에 실제 승리가 확인된 첫 수를 반환합니다. 화면의 **첫 승리 단어**는 이 수에 해당하는 단어입니다. 아래의 참고용 탐색 기록은 전체 필승 수순을 보장하지 않으므로, 중간에 나온 단어를 초기에 두어도 승리한다고 해석하면 안 됩니다.
+
+**이미 사용한 단어**를 입력하면 해당 단어를 제외한 남은 사전으로 조회합니다. `결핍`을 사용한 뒤의 `핍`을 확인하려면 조회 음절에 `핍`, 이미 사용한 단어에 `결핍`을 넣습니다. 처음부터 `핍`에서 시작하는 상태와는 다릅니다. 실제 대국을 재현할 때는 이전 수까지 사용한 단어를 모두 입력하세요. 시간 초과는 미판정이며 패배로 처리하지 않습니다.
+
 ## 음절 조회 API
 
 ```js
@@ -44,9 +48,14 @@ console.log(info.nodeType, info.winningWords);
 const searcher = new ParallelSearchRunner();
 const parallel = await searcher.searchSyllable(solver.graphSolver, '과', changeFuncIdx,
   undefined, { workers: 4, timeoutMillis: 30000 });
+
+// 특정 단어를 사용한 이후의 상태를 조회합니다.
+const remaining = engine.withHistory(solver, ['결핍']);
+const next = await searcher.searchSyllable(remaining.graphSolver, '핍', changeFuncIdx,
+  undefined, { workers: 4, timeoutMillis: 60000 });
 ```
 
-`engine`과 `rule`의 생성 예제는 아래 기본 API를 참고하세요. `ParallelSearchRunner`는 패키지에서 import합니다. 입력 이동을 기준으로 판정하는 `searchIsWin`과 달리, `searchSyllable`은 조회한 음절에서 시작할 사람의 승패를 반환합니다. 사전에 끝음절로 등장하지 않는 글자도 연결 규칙에 따라 처리합니다. 기보를 반영하려면 `engine.afterHistory(solver, history)`의 반환값을 첫 번째 인자로 전달하세요.
+`engine`과 `rule`의 생성 예제는 아래 기본 API를 참고하세요. `ParallelSearchRunner`는 패키지에서 import합니다. 입력 이동을 기준으로 판정하는 `searchIsWin`과 달리, `searchSyllable`은 조회한 음절에서 시작할 사람의 승패를 반환합니다. 사전에 끝음절로 등장하지 않는 글자도 연결 규칙에 따라 처리합니다. `withHistory`는 그래프와 단어 목록을 함께 반영한 새 solver를 반환하며, 사전에 없는 사용 단어는 오류로 처리합니다. 위 `결핍` 예제에는 그 단어가 들어 있는 사전이 필요합니다. 그래프만 필요한 기존 사용법은 `engine.afterHistory(solver, history)`로 유지됩니다.
 
 `wasm-pack`을 이미 사용한다면 다음 방식도 가능합니다.
 
