@@ -112,6 +112,20 @@ pub fn get_next_words(solver: JsValue, history: JsValue) -> Result<JsValue, JsVa
     encode(&solver.get_next_words(&history).map_err(js_error)?)
 }
 
+#[wasm_bindgen(js_name = getSyllableInfo)]
+pub fn get_syllable_info(
+    solver: JsValue,
+    syllable: &str,
+    change_func_idx: usize,
+) -> Result<JsValue, JsValue> {
+    let solver = decode::<core::WordSolver>(solver)?;
+    encode(
+        &solver
+            .get_syllable_info(syllable, change_func_idx)
+            .map_err(js_error)?,
+    )
+}
+
 #[wasm_bindgen(js_name = afterHistory)]
 pub fn after_history(solver: JsValue, history: JsValue, flow: usize) -> Result<JsValue, JsValue> {
     let solver = decode::<core::WordSolver>(solver)?;

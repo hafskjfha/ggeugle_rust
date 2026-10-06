@@ -1,5 +1,6 @@
 import { WorkerRunner, ParallelSearchRunner } from '../dist/index.js';
 import { parseDictionary, readDictionaryFile } from './dictionary.mjs';
+import { describeSyllableInfo, explainSyllableResult } from './result-info.mjs';
 
 const loader = new WorkerRunner();
 const searcher = new ParallelSearchRunner();
@@ -18,6 +19,9 @@ const resultTitle = document.querySelector('#result-title');
 const resultMessage = document.querySelector('#result-message');
 const progress = document.querySelector('#progress');
 const details = document.querySelector('#result-details');
+const resultContext = document.querySelector('#result-context');
+const resultProof = document.querySelector('#result-proof');
+const winningWord = document.querySelector('#winning-word');
 
 let queryVersion = 0;
 let activeRun;
@@ -43,6 +47,10 @@ function showStatus(title, message, state = 'idle') {
   progress.textContent = '';
   details.hidden = true;
   details.open = false;
+  for (const element of [resultContext, resultProof, winningWord]) {
+    element.textContent = '';
+    element.hidden = true;
+  }
 }
 
 function stopActive() {
@@ -91,15 +99,29 @@ function isCurrent(run) {
   return activeRun === run && run.version === queryVersion;
 }
 
-function showResult(result, syllable, elapsedMillis) {
+function showInitialInfo(info, changeFuncIdx) {
+  const description = describeSyllableInfo(info, changeFuncIdx);
+  resultContext.textContent = `${description.ruleLabel} · 초기 분류: ${description.classificationLabel}`;
+  resultContext.hidden = false;
+}
+
+function showResult(result, syllable, elapsedMillis, info, changeFuncIdx) {
   showStatus(`‘${syllable}’로 시작할 차례인 사람은 ${result.isWin ? '필승' : '필패'}입니다.`,
     `두 사람이 최선의 수를 두면, 이 차례의 사람은 ${result.isWin ? '승리' : '패배'}합니다.`,
     result.isWin ? 'win' : 'lose');
+  const explanation = explainSyllableResult(info, result, changeFuncIdx);
+  showInitialInfo(info, changeFuncIdx);
+  resultProof.textContent = `판정 방식: ${explanation.methodLabel}`;
+  resultProof.hidden = false;
+  if (explanation.winningWord) {
+    winningWord.textContent = `첫 승리 단어: ${explanation.winningWord}`;
+    winningWord.hidden = false;
+  }
   document.querySelector('#metrics').textContent =
     `전체 소요 ${(elapsedMillis / 1000).toFixed(2)}초 · 탐색 ${(result.duration / 1000).toFixed(2)}초 · 방문한 상태 ${result.visited.toLocaleString('ko-KR')}개`;
   document.querySelector('#path').textContent = result.optimalPath.length
     ? result.optimalPath.map(([head, tail]) => `${head} → ${tail}`).join('  /  ')
-    : '이 결과에는 진행 경로가 없습니다.';
+    : explanation.pathExplanation;
   details.hidden = false;
 }
 
@@ -134,10 +156,15 @@ form.addEventListener('submit', async (event) => {
   const started = performance.now();
   const deadline = started + seconds * 1000;
   let lastProgress = 0;
+  let info;
   try {
     const solver = await loader.callAndTerminate('getWcData', [makeRule(dictionary.content, changeFuncIdx), 0], seconds * 1000);
     if (!isCurrent(run)) return;
+    info = await loader.callAndTerminate('getSyllableInfo', [solver, syllable, changeFuncIdx],
+      Math.max(0, deadline - performance.now()));
+    if (!isCurrent(run)) return;
     showStatus('승패 탐색 중…', `‘${syllable}’로 시작할 차례인 사람의 승패를 조회하고 있습니다.`, 'loading');
+    showInitialInfo(info, changeFuncIdx);
     const result = await searcher.searchSyllable(solver.graphSolver, syllable, changeFuncIdx, undefined, {
       workers, timeoutMillis: Math.max(0, deadline - performance.now()), signal: run.controller.signal,
       onEvent(event) {
@@ -147,13 +174,14 @@ form.addEventListener('submit', async (event) => {
         progress.textContent = `${branch}현재 ${event.payload.length.toLocaleString('ko-KR')}수까지 탐색 중`;
       },
     });
-    if (isCurrent(run)) showResult(result, syllable, performance.now() - started);
+    if (isCurrent(run)) showResult(result, syllable, performance.now() - started, info, changeFuncIdx);
   } catch (error) {
     if (!isCurrent(run)) return;
     if (error?.name === 'AbortError') {
       showStatus('조회 중단', '조회를 중단했습니다. 다시 조회할 수 있습니다.');
     } else if (error?.name === 'TimeoutError') {
       showStatus('미판정 — 제한 시간 초과', `${seconds}초 안에 승패를 확정하지 못했습니다. 제한 시간을 늘려 다시 조회하세요.`, 'error');
+      if (info) showInitialInfo(info, changeFuncIdx);
     } else {
       showStatus('조회 실패', `승패를 조회할 수 없습니다. ${error?.message ?? String(error)}`, 'error');
     }

@@ -30,6 +30,11 @@ export interface WordSolver {
   tailIdx: number;
   flow: number;
 }
+export interface SyllableInfo {
+  nodeType: NodeType;
+  winningMove: SingleMove | null;
+  winningWords: string[];
+}
 export interface PrecInfo {
   rule: number;
   maps: { edge: Record<string, Record<string, number>>; node: Record<string, number> };
@@ -107,6 +112,7 @@ export interface EngineFunctions {
   updateSolver(graphs: GraphPartitions, moves: Edge[], flow?: NodePos): GraphSolver;
   getGraph(graphs: GraphPartitions): Graph;
   getNextWords(solver: WordSolver, history: string[]): string[];
+  getSyllableInfo(solver: WordSolver, syllable: string, changeFuncIdx?: number): SyllableInfo;
   afterHistory(solver: WordSolver, history: string[], flow?: NodePos): GraphSolver;
   chooseMove(solver: WordSolver, history: string[], options?: AiOptions,
     callback?: (event: GameEvent) => void): string | null;

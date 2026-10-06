@@ -1,5 +1,5 @@
 use crate::{
-    Result,
+    Error, Result,
     edge_map::EdgeMap,
     graph::BipartiteDiGraph,
     rules::{ChangeRule, get_head_tail},
@@ -87,6 +87,15 @@ pub struct WordSolver {
     pub flow: usize,
 }
 
+/// Initial graph classification and a concrete word for its optimal winning move.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyllableInfo {
+    pub node_type: NodeType,
+    pub winning_move: Option<SingleMove>,
+    pub winning_words: Vec<String>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MoveRow {
@@ -152,6 +161,59 @@ impl WordSolver {
             tail_idx,
             flow,
         }
+    }
+    pub fn get_syllable_info(
+        &self,
+        syllable: &str,
+        change_func_idx: usize,
+    ) -> Result<SyllableInfo> {
+        let mut chars = syllable.chars();
+        if chars.next().is_none() || chars.next().is_some() {
+            return Err(Error::InvalidInput(
+                "syllable must contain exactly one Unicode scalar value".into(),
+            ));
+        }
+        if change_func_idx > 10 {
+            return Err(Error::InvalidInput("changeFuncIdx must be 0..=10".into()));
+        }
+        let rule = Some(ChangeRule(change_func_idx));
+        let node_type = self.graph_solver.get_node_type(syllable, 0, rule);
+        let winning_move = if node_type.normalized() == NodeType::Win {
+            self.graph_solver
+                .get_winning_optimal_move(0, syllable, rule)
+                .or_else(|| {
+                    // A missing tail may also transform to losing heads, which
+                    // the legacy position-0 getter can select before a winning one.
+                    self.graph_solver
+                        .graphs
+                        .get_move_view_nodes(0, syllable, 0, rule, None)
+                        .into_iter()
+                        .filter(|head| {
+                            self.graph_solver.get_node_type(head, 1, rule).normalized()
+                                == NodeType::Win
+                        })
+                        .filter_map(|head| {
+                            self.graph_solver
+                                .get_winning_optimal_move(1, &head, rule)
+                                .map(|movement| {
+                                    (self.graph_solver.depth_map[1].get(&head).copied(), movement)
+                                })
+                        })
+                        .min_by_key(|(depth, _)| (depth.is_none(), depth.unwrap_or(0)))
+                        .map(|(_, movement)| movement)
+                })
+        } else {
+            None
+        };
+        let winning_words = winning_move
+            .as_ref()
+            .map(|(head, tail)| self.words_in_partition(head, tail, "winlose"))
+            .unwrap_or_default();
+        Ok(SyllableInfo {
+            node_type,
+            winning_move,
+            winning_words,
+        })
     }
     pub fn get_next_words(&self, history: &[String]) -> Result<Vec<String>> {
         if history.is_empty() {

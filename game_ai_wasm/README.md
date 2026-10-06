@@ -24,6 +24,8 @@ npm run example
 
 판정은 **그 음절로 시작할 차례인 플레이어** 기준입니다. 예를 들어 사전이 `사과 과자 자두`라면 `과`는 패배, `자`는 승리입니다. 두음법칙 사용 여부와 워커 수를 선택할 수 있습니다. 분류만으로 결정되지 않는 상태는 자동으로 추가 탐색하며, 제한 시간 안에 끝나지 않으면 **미판정**으로 표시합니다.
 
+결과에는 적용한 규칙, 초기 분류와 판정 방식을 함께 표시합니다. 초기 `route`는 승패가 미확정이라는 뜻이며 추가 탐색으로 승리나 패배가 확정될 수 있습니다. 승패 전파와 가지치기만으로 확정된 결과는 별도 DFS 경로를 만들지 않습니다. 이때 정적 분석에서 확인한 첫 승리 단어를 표시합니다. 저장된 탐색 경로도 가지치기로 판정이 끝난 지점까지만 포함할 수 있습니다.
+
 ## 음절 조회 API
 
 ```js
@@ -33,6 +35,10 @@ const changeFuncIdx = rule.content.wordConnectionRule.changeFuncIdx;
 // 직접 호출: 이 음절로 시작할 차례인 사람이 승리하면 true입니다.
 const result = engine.searchSyllable(solver.graphSolver, '과', changeFuncIdx);
 console.log(result.isWin);
+
+// 초기 분류와 정적 분석의 첫 승리 단어를 확인합니다.
+const info = engine.getSyllableInfo(solver, '과', changeFuncIdx);
+console.log(info.nodeType, info.winningWords);
 
 // 동일한 판정을 Web Worker에서 병렬로 탐색합니다.
 const searcher = new ParallelSearchRunner();

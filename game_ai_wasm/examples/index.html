@@ -96,11 +96,14 @@
   <section id="result" class="card" data-state="idle" aria-live="polite" aria-atomic="true" aria-busy="false">
     <h2 id="result-title">조회 대기 중</h2>
     <p id="result-message">사전을 선택하고 한 글자를 입력한 뒤 조회하세요.</p>
+    <p id="result-context" class="hint" hidden></p>
+    <p id="result-proof" class="hint" hidden></p>
+    <p id="winning-word" hidden></p>
     <p id="progress" class="hint"></p>
     <details id="result-details" hidden>
       <summary>탐색 정보 보기</summary>
       <p id="metrics" class="hint"></p>
-      <p class="hint">최적 진행 (첫 글자 → 끝 글자)</p>
+      <p class="hint">탐색 중 저장한 경로 (첫 글자 → 끝 글자)</p>
       <p id="path"></p>
     </details>
   </section>

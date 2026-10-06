@@ -41,6 +41,7 @@ export async function createEngineFunctions(wasmInput?: WasmInput): Promise<Engi
     updateSolver: (graphs, moves, flow = 0) => raw.updateSolver(graphs, moves, flow),
     getGraph: (graphs) => raw.getGraph(graphs),
     getNextWords: (solver, history) => raw.getNextWords(solver, history),
+    getSyllableInfo: (solver, syllable, changeFuncIdx = 0) => raw.getSyllableInfo(solver, syllable, changeFuncIdx),
     afterHistory: (solver, history, flow = solver.flow as 0 | 1) => raw.afterHistory(solver, history, flow),
     chooseMove: (solver, history, options = {}, callback) => raw.chooseMove(solver, history, options, callback),
     isGameEnd: (solver, history, stealable = false) => raw.isGameEnd(solver, history, stealable),
